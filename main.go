@@ -1,61 +1,57 @@
-// Sending Email Using Smtp in Golang
 package main
 
 import (
-	"fmt"
+	"encoding/base64"
 	"net/smtp"
-	"os"
+	"strings"
 )
 
-// Main function
 func main() {
+	//auth := smtp.PlainAuth("", "evmailforgs@mail.ru", "jqAppAUQ9eEh4Cym9hSC", "smtp.mail.ru")
+	//err := smtp.SendMail("smtp.mail.ru:465", auth, "evmailforgs@mail.ru", []string{"evmailforclient@mail.ru"}, []byte("Текст письма."))
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	SendMail("smtp.mail.ru:995", "evmailforgs@mail.ru", "Subject text", "Body text", []string{"evmailforclient@mail.ru"})
+}
 
-	// from is senders email address
+func SendMail(addr, from, subject, body string, to []string) error {
+	r := strings.NewReplacer("\r\n", "", "\r", "", "\n", "", "%0a", "", "%0d", "")
 
-	// we used environment variables to load the
-	// email address and the password from the shell
-	// you can also directly assign the email address
-	// and the password
-	from := "evmailforgs@mail.ru"
-	password := "jqAppAUQ9eEh4Cym9hSC"
-
-	// toList is list of email address that email is to be sent.
-	toList := []string{"evmailforclient@mail.ru"}
-
-	// host is address of server that the
-	// sender's email address belongs,
-	// in this case its gmail.
-	// For e.g if your are using yahoo
-	// mail change the address as smtp.mail.yahoo.com
-	host := "smtp.mail.ru"
-
-	// Its the default port of smtp server
-	port := "465"
-
-	// This is the message to send in the mail
-	msg := "Hello geeks!!!"
-
-	// We can't send strings directly in mail,
-	// strings need to be converted into slice bytes
-	body := []byte(msg)
-
-	// PlainAuth uses the given username and password to
-	// authenticate to host and act as identity.
-	// Usually identity should be the empty string,
-	// to act as username.
-	auth := smtp.PlainAuth("", from, password, host)
-
-	// SendMail uses TLS connection to send the mail
-	// The email is sent to all address in the toList,
-	// the body should be of type bytes, not strings
-	// This returns error if any occurred.
-	err := smtp.SendMail(host+":"+port, auth, from, toList, body)
-
-	// handling the errors
+	c, err := smtp.Dial(addr)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return err
+	}
+	defer c.Close()
+	if err = c.Mail(r.Replace(from)); err != nil {
+		return err
+	}
+	for i := range to {
+		to[i] = r.Replace(to[i])
+		if err = c.Rcpt(to[i]); err != nil {
+			return err
+		}
 	}
 
-	fmt.Println("Successfully sent mail to all user in toList")
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+
+	msg := "To: " + strings.Join(to, ",") + "\r\n" +
+		"From: " + from + "\r\n" +
+		"Subject: " + subject + "\r\n" +
+		"Content-Type: text/html; charset=\"UTF-8\"\r\n" +
+		"Content-Transfer-Encoding: base64\r\n" +
+		"\r\n" + base64.StdEncoding.EncodeToString([]byte(body))
+
+	_, err = w.Write([]byte(msg))
+	if err != nil {
+		return err
+	}
+	err = w.Close()
+	if err != nil {
+		return err
+	}
+	return c.Quit()
 }
