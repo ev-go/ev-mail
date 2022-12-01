@@ -30,7 +30,7 @@ func main() {
 	host := "smtp.mail.ru"
 
 	// Its the default port of smtp server
-	port := "995"
+	port := "465"
 
 	// This is the message to send in the mail
 	msg := "Hello geeks!!!"
